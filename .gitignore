@@ -1,0 +1,14 @@
+*.obj
+*.map
+MARTY_ROM
+CD/TBIOS.SYS
+CD/TBIOS.BIN
+CD/IO.SYS
+*.o
+*.a
+*.EXP
+*.elf
+CD/*.EXP
+common/*.o
+src/*.o
+*.iso
