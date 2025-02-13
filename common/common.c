@@ -2,33 +2,33 @@
 #include <stdlib.h>
 
 uint16_t crtc_in16(crtc_reg_t reg) {
-   _outb(CRTC_ADDR, reg);
-   return _inw(CRTC_DATA);
+   outb(reg,CRTC_ADDR);
+   return inw(CRTC_DATA);
 }
 
 void crtc_out8_lo(crtc_reg_t reg, uint16_t val) {
-   _outb(CRTC_ADDR, reg);
-   _outb(CRTC_DATA_LO, val & 0xff);
+   outb( reg, CRTC_ADDR);
+   outb( val & 0xff, CRTC_DATA_LO);
 }
 
 void crtc_out8_hi(crtc_reg_t reg, uint16_t val) {
-   _outb(CRTC_ADDR, reg);
-   _outb(CRTC_DATA_HI, val >> 8);
+   outb(reg, CRTC_ADDR);
+   outb(val >> 8, CRTC_DATA_HI);
 }
 
 void crtc_out16(crtc_reg_t reg, uint16_t val) {
-   _outb(CRTC_ADDR, reg);
-   _outw(CRTC_DATA, val);
+   outb( reg, CRTC_ADDR);
+   outw( val, CRTC_DATA);
 }
 
 uint8_t video_in(video_reg_t reg) {
-   _outb(VIDEO_ADDR, reg);
-   return _inb(VIDEO_DATA);
+   outb( reg, VIDEO_ADDR);
+   return inb(VIDEO_DATA);
 }
 
 void video_out(video_reg_t reg, uint8_t val) {
-   _outb(VIDEO_ADDR, reg);
-   _outb(VIDEO_DATA, val);
+   outb( reg, VIDEO_ADDR);
+   outb( val, VIDEO_DATA);
 }
 
 void start_display(void) {
@@ -53,7 +53,7 @@ void set_crtc(const crtc_set_t set) {
 }
 
 void set_video(const video_set_t set) {
-   for (int i = 0; i < sizeof(video_set_t) / sizeof(set[0]); ++i) {
+   for (int i = 0; i < 2; ++i) {
       video_out(i, set[i]);
    }
 }

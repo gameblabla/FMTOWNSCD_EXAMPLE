@@ -2,66 +2,7 @@
 #define COMMON_H
 
 #include <stdint.h>
-
-/* Byte Input */
-static inline uint8_t _inb(uint16_t port) {
-    uint8_t val;
-    __asm__ volatile ("inb %1, %0" : "=a"(val) : "Nd"(port));
-    return val;
-}
-
-static inline uint8_t _inbc(uint16_t port) {
-    return _inb(port);
-}
-
-/* Byte Output */
-static inline void _outb(uint16_t port, uint8_t val) {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
-
-static inline void _outbc(uint16_t port, uint8_t val) {
-    _outb(port, val);
-}
-
-/* Word Input (16-bit) */
-static inline uint16_t _inw(uint16_t port) {
-    uint16_t val;
-    __asm__ volatile ("inw %1, %0" : "=a"(val) : "Nd"(port));
-    return val;
-}
-
-static inline uint16_t _inwc(uint16_t port) {
-    return _inw(port);
-}
-
-/* Word Output (16-bit) */
-static inline void _outw(uint16_t port, uint16_t val) {
-    __asm__ volatile ("outw %0, %1" : : "a"(val), "Nd"(port));
-}
-
-static inline void _outwc(uint16_t port, uint16_t val) {
-    _outw(port, val);
-}
-
-/* Long Input (32-bit) */
-static inline uint32_t _inl(uint16_t port) {
-    uint32_t val;
-    __asm__ volatile ("inl %1, %0" : "=a"(val) : "Nd"(port));
-    return val;
-}
-
-static inline uint32_t _inlc(uint16_t port) {
-    return _inl(port);
-}
-
-/* Long Output (32-bit) */
-static inline void _outl(uint16_t port, uint32_t val) {
-    __asm__ volatile ("outl %0, %1" : : "a"(val), "Nd"(port));
-}
-
-static inline void _outlc(uint16_t port, uint32_t val) {
-    _outl(port, val);
-}
+#include "io.h"
 
 
 typedef enum {
