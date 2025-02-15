@@ -15,4 +15,4 @@ Use RUN.SH to build iso and run it with Tsugaru_CUI.elf.
 Do not remove IPL.BIN and sort.file as they are needed to make sure it works.
 IO.SYS must be set at specific logical sector.
 
-This example makes the screen red by drawing to VRAM.
+This example loads image from CD, loads it into buffer, draws it to VRAM with double buffering/paging and wait for vsync.
