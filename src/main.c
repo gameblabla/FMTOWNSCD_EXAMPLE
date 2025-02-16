@@ -20,14 +20,19 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <inttypes.h>
-#include "test.h"      // Custom header (assumed to contain additional definitions)
-#include "defs.h"      // Custom header (assumed to contain hardware definitions)
-#include "io.h"        // Custom header (assumed to provide I/O functions)
-#include "common.h"    // Custom header
-#include "settings.h"  // Custom header (defines video and CRTC settings)
+#include "palette.h"   
+#include "test.h"  
+#include "defs.h"
+#include "io.h"  
+#include "common.h" 
+#include "settings.h"  // (defines video and CRTC settings)
+
+int offset, currentpage;
 
 #define SCREEN_WIDTH 512
 #define SCREEN_HEIGHT 480
+
+#define SCREEN_WIDTH_STRIDE 512
 
 //----------------------------------------------------------------
 // Global Variables
@@ -37,17 +42,16 @@
  * VRAM pointers:
  * We use __seg_gs to make the GS segment pointer point to VRAM.
  * Once GS is set to the VRAM segment (selector 0x104 for GRB555 mode),
- * the pointer "vram" (and "vram2") can be used to access VRAM in 32-bit mode.
+ * the pointer "vram" can be used to access VRAM in 16-bit mode.
  */
-__seg_gs uint32_t *vram = 0;
-__seg_gs uint32_t *vram2 = 0;
+__seg_gs uint16_t *vram = 0;
 
 /*
  * Picture buffer:
  * The raw image is 512×480 pixels, with each pixel being 16 bits.
- * However, we will be transferring data in 32-bit chunks.
+ * However, we will be transferring data in 16-bit chunks.
  */
-uint32_t picture[SCREEN_WIDTH * SCREEN_HEIGHT];
+uint16_t picture[SCREEN_WIDTH * SCREEN_HEIGHT];
 
 //----------------------------------------------------------------
 // CPU Cache Control Functions
@@ -254,6 +258,41 @@ void load_raw_image(const char *filename) {
     dosext_close_handle(file_handle, &close_err);
 }
 
+void load_palette(const char *filename) {
+    const size_t palette_size = 768;  // 256 colors * 3 bytes per color (RGB888)
+    uint8_t palette[palette_size];
+
+    // Open the palette file in read-only mode.
+    uint16_t file_handle;
+    uint16_t open_err = dosext_open_handle(0, filename, &file_handle);
+    if (open_err != 0) {
+        // Failed to open the file.
+        return;
+    }
+
+    // Read the entire palette data.
+    uint32_t bytes_read;
+    if (!dosext_read_handle(file_handle, palette_size, palette, &bytes_read) ||
+        bytes_read != palette_size) {
+        // Read failed or did not return the expected number of bytes.
+        uint16_t close_dummy;
+        dosext_close_handle(file_handle, &close_dummy);
+        return;
+    }
+
+    // Close the palette file.
+    uint16_t close_err;
+    dosext_close_handle(file_handle, &close_err);
+
+    // Apply each palette entry using the set_palette function.
+    for (uint8_t i = 0; i < 256; i++) {
+        uint8_t r = palette[i * 3 + 0];
+        uint8_t g = palette[i * 3 + 1];
+        uint8_t b = palette[i * 3 + 2];
+        set_palette(i, r, g, b);
+    }
+}
+
 //----------------------------------------------------------------
 // Display Functions
 //----------------------------------------------------------------
@@ -289,9 +328,27 @@ static inline void WriteCRTC(int address, int data)
 static crtc_set_t crtc = CRTC_SET_31;
 static video_set_t video = VIDEO_SET_31;
 
+
+#define SetPixel_16bpp(x, y, color) vram[x + (y * SCREEN_WIDTH_STRIDE)] = color;
+
 //----------------------------------------------------------------
 // Main Application Entry Point
 //----------------------------------------------------------------
+
+void Put_Image(uint16_t* src_line, uint32_t num_pixels)
+{
+        vram = 0;          // Base pointer for first VRAM page.
+        vram += offset;
+        // Copy image data from 'picture' to both VRAM ports (odd/even)
+        for (int i = 0; i < num_pixels; i++) {
+            *vram++  = *src_line++;
+        }
+        
+        // Set pixel at defined location
+		vram = 0;
+        vram += offset;	
+}
+
 
 /*
  * main
@@ -301,7 +358,7 @@ static video_set_t video = VIDEO_SET_31;
  */
 int main(int argc, char* argv[])
 {
-    int offset, currentpage;
+
 
     // Enable CPU cache if available (for 486 and above).
     set_cache(1);
@@ -316,7 +373,7 @@ int main(int argc, char* argv[])
 
     // Set GS to point to VRAM.
     // For GRB555 mode on FM TOWNS, the VRAM segment selector is 0x104.
-    uint16_t vram_selector = 0x104;
+    uint16_t vram_selector = 0x10c;
     asm volatile("movw %w0, %%gs\n\t" : : "r"(vram_selector));
 
     // Load the raw image file into the 'picture' buffer.
@@ -327,33 +384,22 @@ int main(int argc, char* argv[])
      * The raw image is 16 bits per pixel, but we are transferring 32 bits
      * at a time (each 32-bit word holds two pixels).
      */
-    uint32_t num_pixels = (512 * 480) / 4;
+    uint32_t num_pixels = (SCREEN_WIDTH * SCREEN_HEIGHT);
 
     currentpage = 0;
 
     // Main loop: display the image with double buffering.
     while (1)
     {
-        // Calculate the offset (in bytes) for the current page.
-        // Each page holds 512×480 pixels, each pixel being 2 bytes.
-        offset = currentpage * (SCREEN_WIDTH * SCREEN_HEIGHT * 2);
+		offset = currentpage * (SCREEN_WIDTH * SCREEN_HEIGHT);
 
-        // Set up the pointers for the two VRAM buffers.
-        vram = 0;          // Base pointer for first VRAM page.
-        vram += offset;    // Adjust to current page.
-        // odd/even lines on FM TOWNS
-        vram2 = vram + (0x40000 / sizeof(uint32_t));
-
-        // Copy image data from 'picture' to both VRAM ports (odd/even)
-        const uint32_t *src_line = picture;
-        for (int i = 0; i < num_pixels; i++) {
-            *vram++  = *src_line++;
-            *vram2++ = *src_line++;
-        }
+        Put_Image(picture, num_pixels);
+        
+		SetPixel_16bpp(2,4, 0xFFFF);
 
         // Update the CRTC registers to point to the current buffer.
-        WriteCRTC(17, offset);
-        WriteCRTC(21, offset);
+		WriteCRTC(17, offset);
+		WriteCRTC(21, offset);
 
         // Wait for vertical synchronization before swapping buffers.
         WaitforVsync();
@@ -362,6 +408,6 @@ int main(int argc, char* argv[])
         currentpage ^= 1;
     }
 
-    // (This point is never reached.)
+
     return 0;
 }

@@ -1,3 +1,3 @@
 set comspec=c:\command.com
-RUN386 FROG
+RUN386 -nocrtreset FROG
 
