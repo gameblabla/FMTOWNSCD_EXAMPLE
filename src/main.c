@@ -324,9 +324,7 @@ static inline void WriteCRTC(int address, int data)
     __outw(data, 0x0442);    // Write the data.
 }
 
-/* 512x480 15bpp mode */
-static crtc_set_t crtc = CRTC_SET_31;
-static video_set_t video = VIDEO_SET_31;
+
 
 
 #define SetPixel_16bpp(x, y, color) vram[x + (y * SCREEN_WIDTH_STRIDE)] = color;
@@ -337,18 +335,35 @@ static video_set_t video = VIDEO_SET_31;
 
 void Put_Image(uint16_t* src_line, uint32_t num_pixels)
 {
-        vram = 0;          // Base pointer for first VRAM page.
-        vram += offset;
-        // Copy image data from 'picture' to both VRAM ports (odd/even)
-        for (int i = 0; i < num_pixels; i++) {
-            *vram++  = *src_line++;
-        }
+    uint16_t vram_selector = 0x10c;
+    asm volatile("movw %w0, %%gs\n\t" : : "r"(vram_selector));
+	vram = 0;          // Base pointer for first VRAM page.
+	vram += offset;
+	// Copy image data from 'picture' to both VRAM ports (odd/even)
+	for (int i = 0; i < num_pixels; i++) {
+		*vram++  = *src_line++;
+	}
         
-        // Set pixel at defined location
-		vram = 0;
-        vram += offset;	
+	// Set pixel at defined location
+	vram = 0;
+	vram += offset;	
 }
 
+
+// 256x240, 512x256
+#define CRTC_SET_256240_512256                                                    \
+   {                                                                    \
+        0x0060,   0x02c0,        0,        0,   0x031f,   0x0000,   0x0004,   0x0000,   \
+        0x0419,   0x00ca,   0x02ca,   0x00ca,   0x02ca,   0x0088,   0x03c8,   0x0048,   \
+        0x03c8,   0x9000,   0x00ca,   0x0000,   0x0080,   0x0800,   0x00ca,   0x0000,   \
+        0x0080,   0x0058,   0x0001,   0x1111,   0x0005,   0x0002,   0x0000,   0x0192   \
+   }   \
+
+#define VIDEO_SET_256240_512256   { 0x1f, 0x09 }
+
+/* 512x480 15bpp mode */
+static crtc_set_t crtc = CRTC_SET_31;
+static video_set_t video = VIDEO_SET_31;
 
 /*
  * main
@@ -369,12 +384,17 @@ int main(int argc, char* argv[])
     set_crtc(crtc);
     set_video(video);
     // Restart display.
+    
+    for(int i=0;i<256;i++)
+    {
+		set_palette(i,i,i,i);
+	}
+    
     start_display();
 
     // Set GS to point to VRAM.
     // For GRB555 mode on FM TOWNS, the VRAM segment selector is 0x104.
-    uint16_t vram_selector = 0x10c;
-    asm volatile("movw %w0, %%gs\n\t" : : "r"(vram_selector));
+
 
     // Load the raw image file into the 'picture' buffer.
     load_raw_image("image.raw");
